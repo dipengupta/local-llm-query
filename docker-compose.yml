@@ -1,0 +1,90 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-local_llm_query}
+      POSTGRES_USER: ${POSTGRES_USER:-local_llm_query}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_llm_query}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-local_llm_query} -d ${POSTGRES_DB:-local_llm_query}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  web:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local-llm-query-dev-secret-key}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,web}
+      DJANGO_TIME_ZONE: ${DJANGO_TIME_ZONE:-America/New_York}
+      POSTGRES_DB: ${POSTGRES_DB:-local_llm_query}
+      POSTGRES_USER: ${POSTGRES_USER:-local_llm_query}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_llm_query}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://llm:8000/v1}
+      LLM_MODEL: ${LLM_MODEL:-local-qwen-query}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-180}
+      QUERY_AGENT_MAX_ROWS: ${QUERY_AGENT_MAX_ROWS:-100}
+    command: >
+      sh -c "python scripts/wait_for_db.py &&
+             python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    working_dir: /app/backend
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      - web
+    environment:
+      VITE_API_PROXY_TARGET: http://web:8000
+    command: npm run dev -- --host 0.0.0.0
+    working_dir: /app/frontend
+    volumes:
+      - .:/app
+      - frontend_node_modules:/app/frontend/node_modules
+    ports:
+      - "5173:5173"
+
+  llm:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    command:
+      - -hf
+      - ${LLAMA_CPP_HF_MODEL:-bartowski/Qwen_Qwen3.5-4B-GGUF:Q4_K_M}
+      - --alias
+      - ${LLAMA_CPP_ALIAS:-local-qwen-query}
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --ctx-size
+      - ${LLAMA_CPP_CTX_SIZE:-4096}
+      - --jinja
+      - --no-webui
+      - --threads
+      - ${LLAMA_CPP_THREADS:-8}
+    volumes:
+      - llama_cache:/root/.cache/llama.cpp
+    ports:
+      - "8001:8000"
+
+volumes:
+  pgdata:
+  frontend_node_modules:
+  llama_cache:

@@ -1,0 +1,227 @@
+:root {
+  font-family: "Space Grotesk", sans-serif;
+  color: #17121d;
+  background:
+    radial-gradient(circle at top left, rgba(255, 194, 102, 0.35), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(69, 160, 255, 0.24), transparent 24%),
+    linear-gradient(160deg, #f6f1e7 0%, #f4efe9 40%, #efe7d9 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: inherit;
+}
+
+button,
+textarea {
+  font: inherit;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-frame {
+  max-width: 1160px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 40px 20px 56px;
+}
+
+.hero {
+  max-width: 720px;
+  margin-bottom: 32px;
+}
+
+.eyebrow,
+.card-kicker,
+.message-meta {
+  font-family: "IBM Plex Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+}
+
+.hero h1,
+.chat-header h2 {
+  margin: 8px 0 12px;
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  line-height: 0.95;
+}
+
+.hero-copy {
+  max-width: 60ch;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.mode-card {
+  border: 1px solid rgba(23, 18, 29, 0.12);
+  border-radius: 28px;
+  padding: 28px;
+  text-align: left;
+  min-height: 240px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 20px 50px rgba(23, 18, 29, 0.08);
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.mode-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 26px 60px rgba(23, 18, 29, 0.14);
+}
+
+.mode-card h2 {
+  margin: 20px 0 12px;
+  font-size: 2rem;
+}
+
+.accent-warm {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 243, 220, 0.86)),
+    #ffffff;
+}
+
+.accent-cool {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(222, 241, 255, 0.86)),
+    #ffffff;
+}
+
+.chat-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.chat-header {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.back-button {
+  border: 0;
+  border-radius: 999px;
+  background: #17121d;
+  color: #fff;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+
+.message-list {
+  min-height: 50vh;
+  display: grid;
+  gap: 14px;
+}
+
+.message,
+.empty-state,
+.composer,
+.error-banner {
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(23, 18, 29, 0.1);
+  box-shadow: 0 16px 40px rgba(23, 18, 29, 0.07);
+}
+
+.message,
+.empty-state,
+.error-banner {
+  padding: 18px 20px;
+}
+
+.message-user {
+  background: rgba(23, 18, 29, 0.92);
+  color: #fff;
+}
+
+.message p {
+  margin: 10px 0 0;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.query-details {
+  margin-top: 16px;
+}
+
+.query-label {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.72;
+  margin-bottom: 8px;
+}
+
+.query-details pre {
+  font-family: "IBM Plex Mono", monospace;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  background: rgba(23, 18, 29, 0.06);
+  padding: 12px;
+  border-radius: 16px;
+}
+
+.composer {
+  padding: 16px;
+}
+
+.composer textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 120px;
+  border: 0;
+  background: transparent;
+  outline: none;
+}
+
+.composer button {
+  margin-top: 12px;
+  border: 0;
+  border-radius: 999px;
+  background: #17121d;
+  color: #fff;
+  padding: 12px 20px;
+  cursor: pointer;
+}
+
+.composer button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.error-banner {
+  color: #8a1e2b;
+  background: rgba(255, 230, 233, 0.92);
+}
+
+@media (max-width: 720px) {
+  .app-frame {
+    padding: 24px 14px 40px;
+  }
+
+  .chat-header {
+    flex-direction: column;
+  }
+
+  .hero h1,
+  .chat-header h2 {
+    font-size: 2.4rem;
+  }
+}

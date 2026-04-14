@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+node_modules/
+dist/
+build/
+staticfiles/
+backend/db.sqlite3
+.env
+playwright-report/
+test-results/
