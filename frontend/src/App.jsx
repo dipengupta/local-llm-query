@@ -11,7 +11,7 @@ const CARDS = [
   {
     id: "query",
     title: "Query Agent",
-    description: "Ask questions that must resolve against the Postgres dataset.",
+    description: "Ask questions that must resolve against Social Committee Teams.",
     accent: "accent-cool",
   },
 ];

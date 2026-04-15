@@ -22,7 +22,7 @@ const MODE_CONFIG = {
   query: {
     label: "Query Agent",
     endpoint: "/api/chat/query/",
-    placeholder: "Ask a question about the imported Postgres data.",
+    placeholder: "Ask a question about Social Committee Teams.",
     submitShape(input) {
       return { question: input };
     },
@@ -59,6 +59,18 @@ function Message({ message, mode }) {
           </details>
         </div>
       ) : null}
+    </article>
+  );
+}
+
+function LoadingMessage({ mode }) {
+  return (
+    <article className="message message-assistant message-loading" role="status" aria-live="polite">
+      <div className="message-meta">{MODE_CONFIG[mode].label}</div>
+      <div className="loading-copy">
+        <span className="spinner" aria-hidden="true" />
+        <p>Fetching result...</p>
+      </div>
     </article>
   );
 }
@@ -128,6 +140,7 @@ export default function ChatScreen({ mode, onBack }) {
         ) : (
           messages.map((message, index) => <Message key={`${message.role}-${index}`} message={message} mode={mode} />)
         )}
+        {isSending ? <LoadingMessage mode={mode} /> : null}
       </div>
 
       {error ? <div className="error-banner">{error}</div> : null}
@@ -140,7 +153,7 @@ export default function ChatScreen({ mode, onBack }) {
           rows={4}
         />
         <button disabled={isSending} type="submit">
-          {isSending ? "Sending..." : "Send"}
+          {isSending ? "Fetching..." : "Send"}
         </button>
       </form>
     </section>

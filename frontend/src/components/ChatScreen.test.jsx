@@ -23,7 +23,8 @@ describe("ChatScreen", () => {
     expect(JSON.parse(request.body)).toEqual({
       messages: [{ role: "user", content: "Hello from component test" }],
     });
-    expect(await screen.findByRole("button", { name: "Sending..." })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "Fetching..." })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("Fetching result...");
 
     pendingText.resolve(JSON.stringify({ answer: "Assistant reply from test mode" }));
     pendingResponse.resolve({ answer: "Assistant reply from test mode" });
@@ -41,7 +42,7 @@ describe("ChatScreen", () => {
 
     const { user } = renderWithUser(<ChatScreen mode="query" onBack={() => {}} />);
 
-    await user.type(screen.getByPlaceholderText("Ask a question about the imported Postgres data."), "Count all records");
+    await user.type(screen.getByPlaceholderText("Ask a question about Social Committee Teams."), "Count all records");
     await user.click(screen.getByRole("button", { name: "Send" }));
 
     const [url, request] = global.fetch.mock.calls[0];
