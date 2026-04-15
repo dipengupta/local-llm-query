@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+from django.db import DatabaseError
+
 from apps.chat.services import OpenAICompatibleChatClient
 from apps.query_agent.schema import SCHEMA_DESCRIPTION
 from apps.query_agent.sql import QueryValidationError, run_query, validate_read_only_sql
@@ -53,7 +55,14 @@ class QueryAgentService:
         except QueryValidationError as exc:
             raise QueryAgentError(str(exc), raw_sql=raw_sql) from exc
 
-        columns, rows = run_query(validated_sql)
+        try:
+            columns, rows = run_query(validated_sql)
+        except DatabaseError as exc:
+            raise QueryAgentError(
+                f"The generated SQL failed to execute: {exc}",
+                raw_sql=validated_sql,
+            ) from exc
+
         answer = self._summarize(question, validated_sql, rows)
 
         return {

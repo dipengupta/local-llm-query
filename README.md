@@ -5,6 +5,8 @@
 - `General`: normal chat with the local model
 - `Query Agent`: database-grounded answers against a Postgres copy of `social-data.sqlite3`
 
+The current app also persists conversation history for both modes and exposes a dashboard in the frontend so saved chats can be reviewed and reopened.
+
 ## Stack
 
 - Django + Django REST Framework
@@ -18,13 +20,19 @@
 - `backend/`: Django project, API, query validation, SQLite import command
 - `frontend/`: React SPA
 - `docs/implementation-plan.md`: implementation decisions for v1
+- `docs/request-response-flow.md`: request flow, runtime behavior, and troubleshooting notes
 - `agents.md`: contributor guidance for humans and coding agents
 
 ## Key API endpoints
 
 - `GET /api/core/health/`
+- `GET /api/chat/conversations/`
+- `GET /api/chat/conversations/latest/?mode=<general|query>`
+- `GET /api/chat/conversations/<id>/`
 - `POST /api/chat/general/`
 - `POST /api/chat/query/`
+
+The chat `POST` endpoints now return a `conversation_id` so the frontend can continue an existing saved session.
 
 ## Data import
 
@@ -48,6 +56,22 @@ Backend API: `http://localhost:8000`
 
 Local LLM API: `http://localhost:8001/v1`
 
+If you already have the stack running and pull new backend changes, run migrations explicitly:
+
+```bash
+docker compose exec web python manage.py migrate
+```
+
+The `web` service also runs `python manage.py migrate` automatically on startup.
+
+## Frontend behavior
+
+- The landing page exposes `General`, `Query Agent`, and a history dashboard.
+- Chat and dashboard navigation use hash-based links so normal browser open-in-new-tab behavior works.
+- Opening a mode from the landing page resumes the latest saved conversation for that mode when one exists.
+- The history dashboard lists saved conversations in a compact table and lets you expand rows to inspect the full latest question and answer.
+- The dashboard also provides links for starting a fresh `General` or `Query Agent` session without resuming history.
+
 ## Frontend tests
 
 Run the frontend component tests from `frontend/`:
@@ -67,6 +91,7 @@ The Playwright suite starts a local Vite server and a Django server in determini
 ## Notes
 
 - The Query Agent is intentionally read-only. Django validates generated SQL before execution.
+- Query execution-time SQL failures are returned as handled API errors instead of uncaught 500s, so malformed generated SQL surfaces cleanly in the UI.
 - `Celery`, `Beat`, and `Redis` are intentionally deferred until there is a concrete async need.
 - The default runtime is `llama.cpp` because it works on CPU-only machines more reliably than the previous `vLLM` setup.
 - The default model is a GGUF quantization, `bartowski/Qwen_Qwen3.5-4B-GGUF:Q4_K_M`, loaded by the `llm` container at startup. You can change it through `.env`.

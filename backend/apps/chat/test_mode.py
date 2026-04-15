@@ -29,6 +29,7 @@ def answer_query_for_e2e(question: str) -> dict:
 
     return {
         "answer": f"Deterministic query answer for: {normalized_question}",
+        "raw_sql": "SELECT :question AS question, char_length(:question) AS length",
         "sql": "SELECT :question AS question, char_length(:question) AS length",
         "columns": ["question", "length"],
         "rows": [row],

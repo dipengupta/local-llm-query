@@ -1,18 +1,19 @@
 # Request And Response Flow
 
-This document explains what happens when you type a message into the UI and wait for a response.
+This document explains what happens when you type a message into the UI, reopen saved chats, and wait for a response.
 
 ## High-level flow
 
-1. The browser sends a `POST` request to the frontend dev server.
+1. The browser loads the React SPA and may first fetch saved conversation history.
 2. The Vite dev server proxies `/api/...` traffic to Django.
 3. Django validates the request body and decides whether this is `General` or `Query Agent`.
 4. Django calls the local LLM sidecar through its OpenAI-compatible API.
 5. For `Query Agent`, Django may call the LLM twice:
    - once to generate SQL
    - once to summarize the returned database rows
-6. Django returns JSON to the frontend.
-7. React renders the answer, and for `Query Agent` also renders the SQL and row payload.
+6. Django persists the turn into conversation history.
+7. Django returns JSON to the frontend.
+8. React renders the answer, and for `Query Agent` also renders the SQL and row payload.
 
 ## Step-by-step path
 
@@ -26,12 +27,17 @@ Relevant behavior:
 
 - `General` submits to `/api/chat/general/`
 - `Query Agent` submits to `/api/chat/query/`
-- `General` sends a `messages` array
-- `Query Agent` sends a single `question`
+- both modes send a `question`
+- both modes may send a `conversation_id` to append to an existing saved conversation
+- opening the dashboard fetches saved conversation summaries
+- opening a saved conversation fetches its ordered turn history
+- opening a mode from the landing page fetches the latest saved conversation for that mode when one exists
 
 Code reference:
 
 - [frontend/src/components/ChatScreen.jsx](/home/dipen/Desktop/codebases/local-llm-query/frontend/src/components/ChatScreen.jsx)
+- [frontend/src/components/HistoryDashboard.jsx](/home/dipen/Desktop/codebases/local-llm-query/frontend/src/components/HistoryDashboard.jsx)
+- [frontend/src/App.jsx](/home/dipen/Desktop/codebases/local-llm-query/frontend/src/App.jsx)
 
 ### 2. The frontend sends JSON
 
@@ -41,7 +47,7 @@ The actual fetch helper is:
 
 What it does:
 
-- sends `POST`
+- sends `GET` for history fetches and `POST` for chat sends
 - sets `Content-Type: application/json`
 - reads the response body as text first
 - tries to parse JSON
@@ -84,8 +90,23 @@ The views are:
 What happens there:
 
 - request JSON is validated with DRF serializers
-- `General` adds a system prompt and calls the LLM
+- history endpoints read `Conversation` and `ConversationTurn`
+- `General` rebuilds conversational context from saved turns, adds a system prompt, and calls the LLM
 - `Query Agent` passes the user question into the query service
+- successful requests persist the question/answer pair into saved conversation history
+
+Conversation persistence lives in:
+
+- [backend/apps/chat/models.py](/home/dipen/Desktop/codebases/local-llm-query/backend/apps/chat/models.py)
+
+Stored shape:
+
+- `Conversation`
+  - one record per saved chat session
+  - fields include `mode`, `title`, `created_at`, `updated_at`
+- `ConversationTurn`
+  - one record per saved question/answer pair
+  - fields include `question`, `answer`, `raw_sql`, `sql`, `rows`, `created_at`
 
 ### 5. Django talks to the local LLM runtime
 
@@ -132,14 +153,15 @@ Current defaults:
 
 For `General`:
 
-1. React sends `messages`
-2. Django adds the general system prompt
+1. React sends `question` and optionally `conversation_id`
+2. Django rebuilds prior user/assistant context from saved turns when resuming a conversation
 3. Django calls the LLM with:
    - `temperature=0.4`
    - `max_tokens=220`
    - `chat_template_kwargs.enable_thinking = false`
-4. Django returns `{ "answer": "..." }`
-5. React renders the assistant message
+4. Django saves the turn into `ConversationTurn`
+5. Django returns `{ "answer": "...", "conversation_id": ... }`
+6. React renders the saved question/answer pair
 
 Code reference:
 
@@ -150,18 +172,21 @@ Code reference:
 
 For `Query Agent`:
 
-1. React sends `{ "question": "..." }`
+1. React sends `{ "question": "...", "conversation_id": ...? }`
 2. Django calls `QueryAgentService.answer_question(...)`
 3. The service asks the LLM to generate SQL
 4. Django validates that SQL against the read-only allowlist
 5. Django executes the SQL against Postgres
 6. Django asks the LLM to summarize the rows
-7. Django returns:
+7. Django saves the turn into `ConversationTurn`
+8. Django returns:
    - `answer`
+   - `conversation_id`
+   - `raw_sql`
    - `sql`
    - `columns`
    - `rows`
-8. React renders the answer plus the SQL and returned rows
+9. React renders the answer plus the SQL and returned rows
 
 Code reference:
 
@@ -178,6 +203,25 @@ Current Query Agent tuning:
   - `temperature=0.2`
   - `max_tokens=220`
   - thinking disabled
+
+### 9. History dashboard flow
+
+The dashboard and resume behavior use three history endpoints:
+
+- `GET /api/chat/conversations/`
+  - returns conversation summaries for the table view
+- `GET /api/chat/conversations/latest/?mode=<general|query>`
+  - returns the latest saved conversation for a mode
+- `GET /api/chat/conversations/<id>/`
+  - returns the full ordered turns for one conversation
+
+Frontend behavior:
+
+- the landing page links to `#/history`
+- mode links use hash-based routes such as `#/chat/general` or `#/chat/query`
+- saved conversation links use `#/chat/<mode>/conversation/<id>`
+- new-session links use `#/chat/<mode>/new`
+- the dashboard keeps a compact table and lets the user expand a row to inspect the full latest question and latest answer inline
 
 ## Startup path
 
@@ -254,5 +298,8 @@ Common cases:
   - model too slow for current timeout / token budget
 - `Query Agent` returns SQL validation error
   - generated SQL violated the allowlist or used forbidden syntax
+- `Query Agent` returns a handled SQL execution error
+  - the generated SQL passed allowlist checks but Postgres rejected it during execution
+  - inspect the returned SQL in the UI or `docker compose logs -f web`
 - frontend shows generic request failure
   - backend returned non-JSON or the proxy target was unavailable

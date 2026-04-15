@@ -1,65 +1,62 @@
-import { useState } from "react";
-import { postJson } from "../lib/api";
+import { useEffect, useRef, useState } from "react";
+import { getJson, postJson } from "../lib/api";
 
 const MODE_CONFIG = {
   general: {
     label: "General",
     endpoint: "/api/chat/general/",
     placeholder: "Ask anything you want to explore locally.",
-    submitShape(input, messages) {
-      const apiMessages = messages
-        .filter((message) => message.role !== "meta")
-        .map(({ role, content }) => ({ role, content }));
-      return { messages: [...apiMessages, { role: "user", content: input }] };
-    },
-    normalizeResponse(data) {
-      return {
-        role: "assistant",
-        content: data.answer,
-      };
-    },
+    heading: "Local model chat",
   },
   query: {
     label: "Query Agent",
     endpoint: "/api/chat/query/",
     placeholder: "Ask a question about Social Committee Teams.",
-    submitShape(input) {
-      return { question: input };
-    },
-    normalizeResponse(data) {
-      return {
-        role: "assistant",
-        content: data.answer,
-        rawSql: data.raw_sql,
-        sql: data.sql,
-        rows: data.rows,
-      };
-    },
+    heading: "Database-grounded answers only",
   },
 };
 
-function Message({ message, mode }) {
+function MessageBubble({ role, label, children, rawSql, sql, rows }) {
   return (
-    <article className={`message message-${message.role}`}>
-      <div className="message-meta">{message.role === "user" ? "You" : MODE_CONFIG[mode].label}</div>
-      <p>{message.content}</p>
-      {message.rawSql && message.rawSql !== message.sql ? (
+    <article className={`message message-${role}`}>
+      <div className="message-meta">{label}</div>
+      <p>{children}</p>
+      {rawSql && rawSql !== sql ? (
         <div className="query-details">
           <div className="query-label">Raw SQL</div>
-          <pre>{message.rawSql}</pre>
+          <pre>{rawSql}</pre>
         </div>
       ) : null}
-      {message.sql ? (
+      {sql ? (
         <div className="query-details">
           <div className="query-label">Executed SQL</div>
-          <pre>{message.sql}</pre>
+          <pre>{sql}</pre>
           <details>
-            <summary>Rows ({message.rows?.length ?? 0})</summary>
-            <pre>{JSON.stringify(message.rows, null, 2)}</pre>
+            <summary>Rows ({rows?.length ?? 0})</summary>
+            <pre>{JSON.stringify(rows, null, 2)}</pre>
           </details>
         </div>
       ) : null}
     </article>
+  );
+}
+
+function Turn({ turn, mode }) {
+  return (
+    <>
+      <MessageBubble role="user" label="You">
+        {turn.question}
+      </MessageBubble>
+      <MessageBubble
+        role="assistant"
+        label={MODE_CONFIG[mode].label}
+        rawSql={turn.raw_sql}
+        sql={turn.sql}
+        rows={turn.rows}
+      >
+        {turn.answer}
+      </MessageBubble>
+    </>
   );
 }
 
@@ -75,39 +72,108 @@ function LoadingMessage({ mode }) {
   );
 }
 
-export default function ChatScreen({ mode, onBack }) {
-  const [messages, setMessages] = useState([]);
+export default function ChatScreen({ mode, onBack, initialConversationId = null, resumeLatest = false }) {
+  const [turns, setTurns] = useState([]);
+  const [conversationId, setConversationId] = useState(initialConversationId);
   const [input, setInput] = useState("");
   const [error, setError] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isLoadingConversation, setIsLoadingConversation] = useState(false);
+  const [pendingQuestion, setPendingQuestion] = useState("");
+  const messageListRef = useRef(null);
+  const bottomAnchorRef = useRef(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadConversation() {
+      setTurns([]);
+      setConversationId(initialConversationId);
+      setPendingQuestion("");
+      setError("");
+
+      if (!initialConversationId && !resumeLatest) {
+        return;
+      }
+
+      setIsLoadingConversation(true);
+      try {
+        const url = initialConversationId
+          ? `/api/chat/conversations/${initialConversationId}/`
+          : `/api/chat/conversations/latest/?mode=${mode}`;
+        const data = await getJson(url);
+        if (!isActive) {
+          return;
+        }
+        setConversationId(data.id);
+        setTurns(data.turns ?? []);
+      } catch (requestError) {
+        if (!isActive) {
+          return;
+        }
+        if (!initialConversationId && requestError.status === 404) {
+          setTurns([]);
+        } else {
+          setError(requestError.message);
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingConversation(false);
+        }
+      }
+    }
+
+    loadConversation();
+    return () => {
+      isActive = false;
+    };
+  }, [initialConversationId, mode, resumeLatest]);
+
+  useEffect(() => {
+    if (typeof bottomAnchorRef.current?.scrollIntoView === "function") {
+      bottomAnchorRef.current.scrollIntoView({ block: "end" });
+    } else if (messageListRef.current) {
+      messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+    }
+  }, [turns, pendingQuestion, isLoadingConversation]);
 
   async function handleSubmit(event) {
     event.preventDefault();
     const trimmed = input.trim();
-    if (!trimmed || isSending) {
+    if (!trimmed || isSending || isLoadingConversation) {
       return;
     }
 
-    const userMessage = { role: "user", content: trimmed };
-    const nextMessages = [...messages, userMessage];
-    setMessages(nextMessages);
+    setPendingQuestion(trimmed);
     setInput("");
     setError("");
     setIsSending(true);
 
     try {
-      const config = MODE_CONFIG[mode];
-      const payload = config.submitShape(trimmed, messages);
-      const data = await postJson(config.endpoint, payload);
-      setMessages([...nextMessages, config.normalizeResponse(data)]);
+      const data = await postJson(MODE_CONFIG[mode].endpoint, {
+        question: trimmed,
+        ...(conversationId ? { conversation_id: conversationId } : {}),
+      });
+
+      setConversationId(data.conversation_id);
+      setTurns((current) => [
+        ...current,
+        {
+          question: trimmed,
+          answer: data.answer,
+          raw_sql: data.raw_sql,
+          sql: data.sql,
+          rows: data.rows ?? [],
+        },
+      ]);
     } catch (requestError) {
       if (mode === "query" && requestError.data?.sql) {
-        setMessages([
-          ...nextMessages,
+        setTurns((current) => [
+          ...current,
           {
-            role: "assistant",
-            content: requestError.message,
-            rawSql: requestError.data.sql,
+            question: trimmed,
+            answer: requestError.message,
+            raw_sql: requestError.data.sql,
             sql: requestError.data.sql,
             rows: [],
           },
@@ -116,6 +182,7 @@ export default function ChatScreen({ mode, onBack }) {
         setError(requestError.message);
       }
     } finally {
+      setPendingQuestion("");
       setIsSending(false);
     }
   }
@@ -128,19 +195,37 @@ export default function ChatScreen({ mode, onBack }) {
         </button>
         <div>
           <p className="eyebrow">{MODE_CONFIG[mode].label}</p>
-          <h2>{mode === "general" ? "Local model chat" : "Database-grounded answers only"}</h2>
+          <h2>{MODE_CONFIG[mode].heading}</h2>
         </div>
       </header>
 
-      <div className="message-list">
-        {messages.length === 0 ? (
+      <div className="message-list" ref={messageListRef}>
+        {isLoadingConversation ? (
+          <div className="empty-state">
+            <p>Loading conversation history...</p>
+          </div>
+        ) : null}
+
+        {!isLoadingConversation && turns.length === 0 && !pendingQuestion ? (
           <div className="empty-state">
             <p>{MODE_CONFIG[mode].placeholder}</p>
           </div>
-        ) : (
-          messages.map((message, index) => <Message key={`${message.role}-${index}`} message={message} mode={mode} />)
-        )}
-        {isSending ? <LoadingMessage mode={mode} /> : null}
+        ) : null}
+
+        {turns.map((turn, index) => (
+          <Turn key={`${turn.created_at ?? "turn"}-${index}`} turn={turn} mode={mode} />
+        ))}
+
+        {pendingQuestion ? (
+          <>
+            <MessageBubble role="user" label="You">
+              {pendingQuestion}
+            </MessageBubble>
+            <LoadingMessage mode={mode} />
+          </>
+        ) : null}
+
+        <div ref={bottomAnchorRef} />
       </div>
 
       {error ? <div className="error-banner">{error}</div> : null}
@@ -152,7 +237,7 @@ export default function ChatScreen({ mode, onBack }) {
           placeholder={MODE_CONFIG[mode].placeholder}
           rows={4}
         />
-        <button disabled={isSending} type="submit">
+        <button disabled={isSending || isLoadingConversation} type="submit">
           {isSending ? "Fetching..." : "Send"}
         </button>
       </form>

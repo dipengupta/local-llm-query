@@ -30,6 +30,15 @@ textarea {
   font: inherit;
 }
 
+button {
+  color: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
 #root {
   min-height: 100vh;
 }
@@ -44,6 +53,17 @@ textarea {
 .hero {
   max-width: 720px;
   margin-bottom: 32px;
+}
+
+.dashboard-link {
+  display: inline-block;
+  margin-top: 18px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 12px 18px;
+  box-shadow: 0 16px 38px rgba(38, 54, 74, 0.08);
+  cursor: pointer;
 }
 
 .eyebrow,
@@ -116,10 +136,33 @@ textarea {
   gap: 18px;
 }
 
-.chat-header {
+.chat-header,
+.dashboard-header {
   display: flex;
   gap: 16px;
   align-items: flex-start;
+}
+
+.dashboard-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.dashboard-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.toolbar-link {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: rgba(250, 252, 255, 0.84);
+  border: 1px solid rgba(26, 34, 48, 0.12);
+  box-shadow: 0 10px 24px rgba(38, 54, 74, 0.06);
 }
 
 .back-button {
@@ -133,9 +176,12 @@ textarea {
 
 .message-list {
   min-height: 50vh;
+  max-height: 58vh;
+  overflow-y: auto;
   display: grid;
   gap: 14px;
   align-content: start;
+  padding-right: 4px;
 }
 
 .message,
@@ -170,6 +216,89 @@ textarea {
 
 .message p {
   margin: 10px 0 0;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.history-table-wrap {
+  overflow-x: auto;
+  border-radius: 22px;
+  border: 1px solid rgba(26, 34, 48, 0.1);
+  background: rgba(250, 252, 255, 0.88);
+  box-shadow: 0 16px 42px rgba(38, 54, 74, 0.08);
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 880px;
+}
+
+.history-table th,
+.history-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(26, 34, 48, 0.08);
+  text-align: left;
+  vertical-align: top;
+}
+
+.history-table th {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(222, 231, 241, 0.72);
+}
+
+.history-table tbody tr:hover {
+  background: rgba(223, 234, 245, 0.34);
+}
+
+.history-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.history-cell-text {
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-cell-muted {
+  opacity: 0.72;
+}
+
+.history-open-link {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.history-expand-button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.history-expanded-row td {
+  background: rgba(223, 234, 245, 0.24);
+}
+
+.history-expanded-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.history-expanded-grid p {
+  margin: 8px 0 0;
   white-space: pre-wrap;
   line-height: 1.6;
 }
@@ -268,12 +397,30 @@ textarea {
     flex-direction: column;
   }
 
+  .dashboard-header {
+    flex-direction: column;
+  }
+
   .hero h1,
-  .chat-header h2 {
+  .chat-header h2,
+  .dashboard-header h2 {
     font-size: 2.4rem;
   }
 
   .message {
     max-width: 100%;
+  }
+
+  .message-list {
+    max-height: none;
+  }
+
+  .dashboard-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .history-expanded-grid {
+    grid-template-columns: 1fr;
   }
 }
