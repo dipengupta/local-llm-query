@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
@@ -180,6 +181,38 @@ class ChatApiTests(TestCase):
         self.assertEqual(payload[0]["question"], "What happened?")
         self.assertEqual(payload[0]["answer"], "Here is the answer.")
         self.assertEqual(payload[0]["turn_count"], 1)
+
+    def test_turn_stream_endpoint_returns_event_stream_response(self):
+        response = self.client.get("/api/chat/turns/stream/", HTTP_ACCEPT="text/event-stream")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/event-stream")
+        self.assertEqual(response["Cache-Control"], "no-cache")
+        response.close()
+
+    @patch("apps.chat.views.OpenAICompatibleChatClient.complete_chat", return_value="Hello from the local model.")
+    def test_turn_stream_endpoint_emits_saved_turn_after_commit(self, mocked_complete_chat):
+        response = self.client.get("/api/chat/turns/stream/", HTTP_ACCEPT="text/event-stream")
+        stream = iter(response.streaming_content)
+
+        self.assertEqual(next(stream), b"retry: 3000\n\n")
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                "/api/chat/general/",
+                {"question": "Hello"},
+                format="json",
+            )
+
+        event = next(stream).decode()
+        payload = json.loads(event.split("data: ", 1)[1].strip())
+
+        self.assertIn("event: turn", event)
+        self.assertEqual(payload["question"], "Hello")
+        self.assertEqual(payload["answer"], "Hello from the local model.")
+        self.assertEqual(payload["mode"], "general")
+        mocked_complete_chat.assert_called_once()
+        response.close()
 
     def test_conversation_latest_endpoint_returns_most_recent_conversation_for_mode(self):
         older = Conversation.objects.create(mode=Conversation.MODE_GENERAL, title="Older")

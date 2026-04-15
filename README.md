@@ -64,6 +64,7 @@ docker compose exec web python manage.py migrate
 ```
 
 The `web` service also runs `python manage.py migrate` automatically on startup.
+The backend is served through `uvicorn` so long-lived streaming responses such as the live dashboard SSE endpoint do not block normal API requests.
 
 ## Frontend behavior
 
@@ -90,6 +91,20 @@ npm run test:e2e
 ```
 
 The Playwright suite starts a local Vite server and a Django server in deterministic UI test mode, so it does not require the LLM container.
+
+To run a browser test against the real app and model instead of deterministic e2e mode, start the Docker stack first and then point Playwright at the existing frontend:
+
+```bash
+docker compose up --build
+cd frontend
+PLAYWRIGHT_USE_EXISTING_APP=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:5173 npx playwright test tests/e2e/chat-flow.spec.js -g "history dashboard updates live when a new chat turn is saved from another tab" --headed
+```
+
+If the local model is slow on your machine, increase the chat response wait:
+
+```bash
+PLAYWRIGHT_USE_EXISTING_APP=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:5173 PLAYWRIGHT_CHAT_RESPONSE_TIMEOUT_MS=300000 npx playwright test tests/e2e/chat-flow.spec.js -g "history dashboard updates live when a new chat turn is saved from another tab" --headed
+```
 
 ## Notes
 

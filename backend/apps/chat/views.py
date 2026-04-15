@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+import json
+
+from django.http import StreamingHttpResponse
 from django.db import transaction
 from django.db.models import Count, Prefetch
 from django.shortcuts import get_object_or_404
@@ -17,6 +21,7 @@ from apps.chat.serializers import (
     GeneralChatRequestSerializer,
     QueryChatRequestSerializer,
 )
+from apps.chat.stream import turn_stream_broker
 from apps.chat.services import LLMServiceError, OpenAICompatibleChatClient
 from apps.chat.test_mode import answer_query_for_e2e, complete_general_chat_for_e2e
 from apps.query_agent.service import QueryAgentError, QueryAgentService
@@ -60,6 +65,15 @@ def create_conversation(mode: str, question: str) -> Conversation:
     return Conversation.objects.create(mode=mode, title=build_conversation_title(question))
 
 
+def serialize_turn_row(turn: ConversationTurn) -> dict:
+    serialized_turn = (
+        ConversationTurn.objects.select_related("conversation")
+        .annotate(turn_count=Count("conversation__turns"))
+        .get(pk=turn.pk)
+    )
+    return ConversationTurnListSerializer(serialized_turn).data
+
+
 def save_turn(
     conversation: Conversation | None,
     *,
@@ -69,7 +83,7 @@ def save_turn(
     raw_sql: str = "",
     sql: str = "",
     rows=None,
-) -> Conversation:
+) -> tuple[Conversation, ConversationTurn]:
     rows = rows or []
     with transaction.atomic():
         if conversation is None:
@@ -78,7 +92,7 @@ def save_turn(
             Conversation.objects.filter(pk=conversation.pk).update(updated_at=timezone.now())
             conversation.refresh_from_db(fields=["updated_at"])
 
-        ConversationTurn.objects.create(
+        turn = ConversationTurn.objects.create(
             conversation=conversation,
             question=question,
             answer=answer,
@@ -86,8 +100,9 @@ def save_turn(
             sql=sql,
             rows=rows,
         )
+        transaction.on_commit(lambda: turn_stream_broker.publish(serialize_turn_row(turn)))
 
-    return conversation
+    return conversation, turn
 
 
 class ConversationListView(APIView):
@@ -110,6 +125,51 @@ class ConversationTurnListView(APIView):
             turn_count=Count("conversation__turns")
         ).order_by("-created_at", "-id")
         return Response(ConversationTurnListSerializer(turns, many=True).data)
+
+
+TURN_STREAM_HEARTBEAT_SECONDS = 15
+
+
+def conversation_turn_stream_view(request):
+    subscriber_id, event_queue = turn_stream_broker.subscribe()
+
+    async def async_stream():
+        yield "retry: 3000\n\n"
+        try:
+            while True:
+                event = await asyncio.to_thread(
+                    turn_stream_broker.get_next_event,
+                    event_queue,
+                    timeout=TURN_STREAM_HEARTBEAT_SECONDS,
+                )
+                if event is None:
+                    yield ": keepalive\n\n"
+                    continue
+                yield f"event: turn\ndata: {json.dumps(event)}\n\n"
+        except GeneratorExit:
+            return
+        finally:
+            turn_stream_broker.unsubscribe(subscriber_id)
+
+    def stream():
+        yield "retry: 3000\n\n"
+        try:
+            while True:
+                event = turn_stream_broker.get_next_event(event_queue, timeout=TURN_STREAM_HEARTBEAT_SECONDS)
+                if event is None:
+                    yield ": keepalive\n\n"
+                    continue
+                yield f"event: turn\ndata: {json.dumps(event)}\n\n"
+        except GeneratorExit:
+            return
+        finally:
+            turn_stream_broker.unsubscribe(subscriber_id)
+
+    content = async_stream() if hasattr(request, "scope") else stream()
+    response = StreamingHttpResponse(content, content_type="text/event-stream")
+    response["Cache-Control"] = "no-cache"
+    response["X-Accel-Buffering"] = "no"
+    return response
 
 
 class ConversationDetailView(APIView):
@@ -173,7 +233,7 @@ class GeneralChatView(APIView):
         except LLMServiceError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
 
-        conversation = save_turn(
+        conversation, _turn = save_turn(
             conversation,
             mode=Conversation.MODE_GENERAL,
             question=question,
@@ -203,7 +263,7 @@ class QueryChatView(APIView):
         except LLMServiceError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
 
-        conversation = save_turn(
+        conversation, _turn = save_turn(
             conversation,
             mode=Conversation.MODE_QUERY,
             question=serializer.validated_data["question"],

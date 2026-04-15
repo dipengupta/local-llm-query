@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { getJson } from "../lib/api";
 
 const MODE_LABELS = {
@@ -26,11 +26,30 @@ function getSessionMarkerStyle(conversationId) {
   };
 }
 
+function compareTurnsDescending(left, right) {
+  const timeDifference = new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+  if (timeDifference !== 0) {
+    return timeDifference;
+  }
+  return right.id - left.id;
+}
+
+function mergeTurns(currentTurns, incomingTurns) {
+  const turnsById = new Map(currentTurns.map((turn) => [turn.id, turn]));
+  incomingTurns.forEach((turn) => {
+    turnsById.set(turn.id, turn);
+  });
+  return [...turnsById.values()].sort(compareTurnsDescending);
+}
+
 export default function HistoryDashboard({ onBack, buildConversationHref, buildNewChatHref }) {
   const [turns, setTurns] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [expandedTurnIds, setExpandedTurnIds] = useState([]);
+  const [liveError, setLiveError] = useState("");
+  const isActiveRef = useRef(true);
+  const streamErrorCountRef = useRef(0);
 
   function toggleExpanded(turnId) {
     setExpandedTurnIds((current) =>
@@ -38,33 +57,84 @@ export default function HistoryDashboard({ onBack, buildConversationHref, buildN
     );
   }
 
-  useEffect(() => {
-    let isActive = true;
-
-    async function loadHistory() {
+  async function loadHistory({ showLoading = true, clearError = true } = {}) {
+    if (showLoading) {
       setIsLoading(true);
+    }
+    if (clearError) {
       setError("");
+    }
+
+    try {
+      const data = await getJson("/api/chat/turns/");
+      if (!isActiveRef.current) {
+        return;
+      }
+      setTurns((current) => mergeTurns(current, data));
+    } catch (requestError) {
+      if (!isActiveRef.current) {
+        return;
+      }
+      setError(requestError.message);
+    } finally {
+      if (showLoading && isActiveRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }
+
+  useEffect(() => {
+    isActiveRef.current = true;
+    loadHistory();
+
+    return () => {
+      isActiveRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof EventSource === "undefined") {
+      return undefined;
+    }
+
+    const eventSource = new EventSource("/api/chat/turns/stream/");
+
+    function handleTurn(event) {
+      if (!isActiveRef.current) {
+        return;
+      }
       try {
-        const data = await getJson("/api/chat/turns/");
-        if (!isActive) {
-          return;
-        }
-        setTurns(data);
-      } catch (requestError) {
-        if (!isActive) {
-          return;
-        }
-        setError(requestError.message);
-      } finally {
-        if (isActive) {
-          setIsLoading(false);
-        }
+        const turn = JSON.parse(event.data);
+        setTurns((current) => mergeTurns(current, [turn]));
+        setError("");
+        setIsLoading(false);
+      } catch {
+        // Ignore malformed stream events and wait for the next valid update.
       }
     }
 
-    loadHistory();
+    eventSource.addEventListener("turn", handleTurn);
+    eventSource.onopen = () => {
+      if (!isActiveRef.current) {
+        return;
+      }
+      streamErrorCountRef.current = 0;
+      setLiveError("");
+    };
+    eventSource.onerror = () => {
+      if (!isActiveRef.current) {
+        return;
+      }
+      streamErrorCountRef.current += 1;
+      loadHistory({ showLoading: false, clearError: false });
+      if (streamErrorCountRef.current >= 3) {
+        setLiveError("Live updates are reconnecting.");
+      }
+    };
+
     return () => {
-      isActive = false;
+      eventSource.removeEventListener("turn", handleTurn);
+      eventSource.close();
     };
   }, []);
 
@@ -87,6 +157,11 @@ export default function HistoryDashboard({ onBack, buildConversationHref, buildN
         <a className="toolbar-link" href={buildNewChatHref("query")}>
           New Query Agent chat
         </a>
+        {liveError ? (
+          <p className="dashboard-live-status" role="status">
+            {liveError}
+          </p>
+        ) : null}
       </section>
 
       {isLoading ? (
