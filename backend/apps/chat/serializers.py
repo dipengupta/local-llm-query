@@ -90,3 +90,34 @@ class ConversationSummarySerializer(serializers.ModelSerializer):
     def get_latest_answer(self, conversation: Conversation) -> str:
         latest_turn = self._get_latest_turn(conversation)
         return latest_turn.answer if latest_turn else ""
+
+
+class ConversationTurnListSerializer(serializers.ModelSerializer):
+    conversation_id = serializers.IntegerField(source="conversation.id", read_only=True)
+    mode = serializers.CharField(source="conversation.mode", read_only=True)
+    title = serializers.CharField(source="conversation.title", read_only=True)
+    conversation_updated_at = serializers.DateTimeField(source="conversation.updated_at", read_only=True)
+    turn_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ConversationTurn
+        fields = [
+            "id",
+            "conversation_id",
+            "mode",
+            "title",
+            "question",
+            "answer",
+            "raw_sql",
+            "sql",
+            "rows",
+            "created_at",
+            "conversation_updated_at",
+            "turn_count",
+        ]
+
+    def get_turn_count(self, turn: ConversationTurn) -> int:
+        count = getattr(turn.conversation, "turn_count", None)
+        if count is not None:
+            return count
+        return turn.conversation.turns.count()

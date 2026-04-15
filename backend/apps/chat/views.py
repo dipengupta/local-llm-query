@@ -13,6 +13,7 @@ from apps.chat.models import Conversation, ConversationTurn, build_conversation_
 from apps.chat.serializers import (
     ConversationDetailSerializer,
     ConversationSummarySerializer,
+    ConversationTurnListSerializer,
     GeneralChatRequestSerializer,
     QueryChatRequestSerializer,
 )
@@ -98,6 +99,17 @@ class ConversationListView(APIView):
             Prefetch("turns", queryset=ConversationTurn.objects.order_by("-created_at", "-id"))
         )
         return Response(ConversationSummarySerializer(conversations, many=True).data)
+
+
+class ConversationTurnListView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        turns = ConversationTurn.objects.select_related("conversation").annotate(
+            turn_count=Count("conversation__turns")
+        ).order_by("-created_at", "-id")
+        return Response(ConversationTurnListSerializer(turns, many=True).data)
 
 
 class ConversationDetailView(APIView):

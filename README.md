@@ -26,6 +26,7 @@ The current app also persists conversation history for both modes and exposes a 
 ## Key API endpoints
 
 - `GET /api/core/health/`
+- `GET /api/chat/turns/`
 - `GET /api/chat/conversations/`
 - `GET /api/chat/conversations/latest/?mode=<general|query>`
 - `GET /api/chat/conversations/<id>/`
@@ -69,7 +70,9 @@ The `web` service also runs `python manage.py migrate` automatically on startup.
 - The landing page exposes `General`, `Query Agent`, and a history dashboard.
 - Chat and dashboard navigation use hash-based links so normal browser open-in-new-tab behavior works.
 - Opening a mode from the landing page resumes the latest saved conversation for that mode when one exists.
-- The history dashboard lists saved conversations in a compact table and lets you expand rows to inspect the full latest question and answer.
+- The history dashboard lists saved turns in a compact table, with one row per question/answer pair.
+- Rows stay uniform and collapsed by default, and can be expanded inline to inspect full question and answer text.
+- A subtle colored gutter marker shows which rows belong to the same saved session without using a dedicated session column.
 - The dashboard also provides links for starting a fresh `General` or `Query Agent` session without resuming history.
 
 ## Frontend tests

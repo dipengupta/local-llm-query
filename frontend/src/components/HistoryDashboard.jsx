@@ -19,17 +19,22 @@ function formatTimestamp(value) {
   }).format(new Date(value));
 }
 
+function getSessionMarkerStyle(conversationId) {
+  const hue = (conversationId * 47) % 360;
+  return {
+    "--session-marker": `hsl(${hue} 45% 52%)`,
+  };
+}
+
 export default function HistoryDashboard({ onBack, buildConversationHref, buildNewChatHref }) {
-  const [conversations, setConversations] = useState([]);
+  const [turns, setTurns] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
-  const [expandedConversationIds, setExpandedConversationIds] = useState([]);
+  const [expandedTurnIds, setExpandedTurnIds] = useState([]);
 
-  function toggleExpanded(conversationId) {
-    setExpandedConversationIds((current) =>
-      current.includes(conversationId)
-        ? current.filter((id) => id !== conversationId)
-        : [...current, conversationId],
+  function toggleExpanded(turnId) {
+    setExpandedTurnIds((current) =>
+      current.includes(turnId) ? current.filter((id) => id !== turnId) : [...current, turnId],
     );
   }
 
@@ -40,11 +45,11 @@ export default function HistoryDashboard({ onBack, buildConversationHref, buildN
       setIsLoading(true);
       setError("");
       try {
-        const data = await getJson("/api/chat/conversations/");
+        const data = await getJson("/api/chat/turns/");
         if (!isActive) {
           return;
         }
-        setConversations(data);
+        setTurns(data);
       } catch (requestError) {
         if (!isActive) {
           return;
@@ -92,66 +97,70 @@ export default function HistoryDashboard({ onBack, buildConversationHref, buildN
 
       {error ? <div className="error-banner">{error}</div> : null}
 
-      {!isLoading && !error && conversations.length === 0 ? (
+      {!isLoading && !error && turns.length === 0 ? (
         <div className="empty-state">
-          <p>No saved conversations yet. Start a chat to build history here.</p>
+          <p>No saved turns yet. Start a chat to build history here.</p>
         </div>
       ) : null}
 
-      {!isLoading && !error && conversations.length > 0 ? (
+      {!isLoading && !error && turns.length > 0 ? (
         <div className="history-table-wrap">
           <table className="history-table">
             <thead>
               <tr>
                 <th scope="col">Mode</th>
-                <th scope="col">Title</th>
-                <th scope="col">Latest question</th>
-                <th scope="col">Latest answer</th>
-                <th scope="col">Turns</th>
-                <th scope="col">Updated</th>
-                <th scope="col">Details</th>
-                <th scope="col">Open</th>
+                <th scope="col">Question</th>
+                <th scope="col">Answer</th>
+                <th scope="col">Asked</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {conversations.map((conversation) => {
-                const isExpanded = expandedConversationIds.includes(conversation.id);
+              {turns.map((turn) => {
+                const isExpanded = expandedTurnIds.includes(turn.id);
                 return (
-                  <Fragment key={conversation.id}>
-                    <tr>
-                      <td>{MODE_LABELS[conversation.mode]}</td>
-                      <td>{conversation.title}</td>
-                      <td className="history-cell-text">{conversation.latest_question}</td>
-                      <td className="history-cell-text history-cell-muted">{conversation.latest_answer}</td>
-                      <td>{conversation.turn_count}</td>
-                      <td>{formatTimestamp(conversation.updated_at)}</td>
-                      <td>
+                  <Fragment key={turn.id}>
+                    <tr className="history-row" style={getSessionMarkerStyle(turn.conversation_id)}>
+                      <td className="history-mode-cell">{MODE_LABELS[turn.mode]}</td>
+                      <td className="history-cell-text">
+                        <div className={`history-cell-clamped ${isExpanded ? "history-cell-unclamped" : ""}`}>
+                          {turn.question}
+                        </div>
+                      </td>
+                      <td className="history-cell-text history-cell-muted">
+                        <div className={`history-cell-clamped ${isExpanded ? "history-cell-unclamped" : ""}`}>
+                          {turn.answer}
+                        </div>
+                      </td>
+                      <td>{formatTimestamp(turn.created_at)}</td>
+                      <td className="history-actions-cell">
                         <button
                           className="history-expand-button"
                           type="button"
                           aria-expanded={isExpanded}
-                          onClick={() => toggleExpanded(conversation.id)}
+                          onClick={() => toggleExpanded(turn.id)}
                         >
-                          {isExpanded ? "Hide" : "Show"}
+                          {isExpanded ? "Collapse" : "Expand"}
                         </button>
-                      </td>
-                      <td>
-                        <a className="history-open-link" href={buildConversationHref(conversation)}>
+                        <a
+                          className="history-open-link"
+                          href={buildConversationHref({ id: turn.conversation_id, mode: turn.mode })}
+                        >
                           Open
                         </a>
                       </td>
                     </tr>
                     {isExpanded ? (
-                      <tr className="history-expanded-row">
-                        <td colSpan={8}>
+                      <tr className="history-expanded-row" style={getSessionMarkerStyle(turn.conversation_id)}>
+                        <td colSpan={5}>
                           <div className="history-expanded-grid">
                             <section>
-                              <div className="query-label">Full question</div>
-                              <p>{conversation.latest_question}</p>
+                              <div className="query-label">Question</div>
+                              <p>{turn.question}</p>
                             </section>
                             <section>
-                              <div className="query-label">Full answer</div>
-                              <p>{conversation.latest_answer}</p>
+                              <div className="query-label">Answer</div>
+                              <p>{turn.answer}</p>
                             </section>
                           </div>
                         </td>

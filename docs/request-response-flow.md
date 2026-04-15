@@ -29,7 +29,7 @@ Relevant behavior:
 - `Query Agent` submits to `/api/chat/query/`
 - both modes send a `question`
 - both modes may send a `conversation_id` to append to an existing saved conversation
-- opening the dashboard fetches saved conversation summaries
+- opening the dashboard fetches saved turn history
 - opening a saved conversation fetches its ordered turn history
 - opening a mode from the landing page fetches the latest saved conversation for that mode when one exists
 
@@ -206,10 +206,14 @@ Current Query Agent tuning:
 
 ### 9. History dashboard flow
 
-The dashboard and resume behavior use three history endpoints:
+The dashboard and resume behavior use four history endpoints:
+
+- `GET /api/chat/turns/`
+  - returns flat turn rows for the dashboard table
+  - each row includes the question, answer, mode, and owning conversation id
 
 - `GET /api/chat/conversations/`
-  - returns conversation summaries for the table view
+  - returns conversation summaries
 - `GET /api/chat/conversations/latest/?mode=<general|query>`
   - returns the latest saved conversation for a mode
 - `GET /api/chat/conversations/<id>/`
@@ -221,7 +225,10 @@ Frontend behavior:
 - mode links use hash-based routes such as `#/chat/general` or `#/chat/query`
 - saved conversation links use `#/chat/<mode>/conversation/<id>`
 - new-session links use `#/chat/<mode>/new`
-- the dashboard keeps a compact table and lets the user expand a row to inspect the full latest question and latest answer inline
+- the dashboard is a flat turn log rather than a conversation-summary grid
+- each row represents one saved `ConversationTurn`
+- rows stay uniformly collapsed by default and can be expanded inline to inspect full question and answer text
+- a subtle colored gutter marker indicates rows that belong to the same saved conversation/session
 
 ## Startup path
 

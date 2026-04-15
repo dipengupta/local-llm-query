@@ -3,16 +3,21 @@ import HistoryDashboard from "./HistoryDashboard";
 import { mockJsonResponse, renderWithUser } from "../test/test-utils";
 
 describe("HistoryDashboard", () => {
-  test("expands a row to show the full question and answer", async () => {
+  test("renders saved turns as collapsible rows without a session column", async () => {
     mockJsonResponse([
       {
         id: 7,
+        conversation_id: 3,
         mode: "general",
         title: "Long conversation",
-        latest_question: "This is a much longer question that should still be fully visible when expanded.",
-        latest_answer: "This is the full answer content that should appear in the expanded row for inspection.",
+        question: "This is the complete question shown directly in the table.",
+        answer: "This is the complete answer shown directly in the table as well.",
+        raw_sql: "",
+        sql: "",
+        rows: [],
+        created_at: "2026-04-15T13:00:00Z",
+        conversation_updated_at: "2026-04-15T13:10:00Z",
         turn_count: 3,
-        updated_at: "2026-04-15T13:00:00Z",
       },
     ]);
 
@@ -24,16 +29,14 @@ describe("HistoryDashboard", () => {
       />,
     );
 
-    expect(await screen.findByText("Long conversation")).toBeInTheDocument();
+    expect(await screen.findByText("General")).toBeInTheDocument();
+    expect(screen.queryByText("Session")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute("href", "#/chat/general/conversation/3");
 
-    await user.click(screen.getByRole("button", { name: "Show" }));
+    await user.click(screen.getByRole("button", { name: "Expand" }));
 
-    expect(screen.getByText("Full question")).toBeInTheDocument();
-    expect(
-      screen.getAllByText("This is a much longer question that should still be fully visible when expanded."),
-    ).toHaveLength(2);
-    expect(
-      screen.getAllByText("This is the full answer content that should appear in the expanded row for inspection."),
-    ).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Collapse" })).toBeInTheDocument();
+    expect(screen.getAllByText("This is the complete question shown directly in the table.")).toHaveLength(2);
+    expect(screen.getAllByText("This is the complete answer shown directly in the table as well.")).toHaveLength(2);
   });
 });

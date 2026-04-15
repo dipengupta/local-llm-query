@@ -161,6 +161,26 @@ class ChatApiTests(TestCase):
         self.assertEqual(payload["turns"][0]["id"], turn.id)
         self.assertEqual(payload["turns"][0]["sql"], "SELECT 'Alice'")
 
+    def test_turn_list_endpoint_returns_flat_turn_rows(self):
+        conversation = Conversation.objects.create(mode=Conversation.MODE_GENERAL, title="Status check")
+        turn = ConversationTurn.objects.create(
+            conversation=conversation,
+            question="What happened?",
+            answer="Here is the answer.",
+        )
+
+        response = self.client.get("/api/chat/turns/")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload[0]["id"], turn.id)
+        self.assertEqual(payload[0]["conversation_id"], conversation.id)
+        self.assertEqual(payload[0]["mode"], "general")
+        self.assertEqual(payload[0]["title"], "Status check")
+        self.assertEqual(payload[0]["question"], "What happened?")
+        self.assertEqual(payload[0]["answer"], "Here is the answer.")
+        self.assertEqual(payload[0]["turn_count"], 1)
+
     def test_conversation_latest_endpoint_returns_most_recent_conversation_for_mode(self):
         older = Conversation.objects.create(mode=Conversation.MODE_GENERAL, title="Older")
         ConversationTurn.objects.create(conversation=older, question="Old", answer="Answer")
