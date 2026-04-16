@@ -12,8 +12,8 @@ The current app also persists conversation history for both modes and exposes a 
 - Django + Django REST Framework
 - React + Vite
 - Postgres
-- `llama.cpp` sidecar serving a quantized GGUF model through an OpenAI-compatible API
-- Docker Compose for local orchestration
+- `llama.cpp` serving a quantized GGUF model through an OpenAI-compatible API
+- Native `llama.cpp` on macOS plus Docker Compose for the rest of the app stack
 
 ## Layout
 
@@ -48,14 +48,20 @@ The import command reads `social-data.sqlite3`, recreates the `socialcomm_*` dat
 ## Running locally
 
 ```bash
-docker compose up --build
+./scripts/up_native_apple_silicon.sh
 ```
 
-Frontend: `http://localhost:5173`
+Frontend: `http://localhost:15173`
 
-Backend API: `http://localhost:8000`
+Backend API: `http://localhost:18000`
 
-Local LLM API: `http://localhost:8001/v1`
+Local LLM API: `http://localhost:18001/v1`
+
+Postgres: `localhost:15432`
+
+On first run, the script installs `llama.cpp` with Homebrew if needed, starts a native Apple Silicon `llama-server`, and downloads `bartowski/Qwen2.5-Coder-7B-Instruct-GGUF:Q4_K_M`. Expect a one-time delay while the model downloads.
+
+If those host ports still collide with something on your machine, change `HOST_POSTGRES_PORT`, `HOST_BACKEND_PORT`, `HOST_FRONTEND_PORT`, or `LLAMA_CPP_PORT` in `.env`.
 
 If you already have the stack running and pull new backend changes, run migrations explicitly:
 
@@ -90,20 +96,20 @@ Run the browser automation suite:
 npm run test:e2e
 ```
 
-The Playwright suite starts a local Vite server and a Django server in deterministic UI test mode, so it does not require the LLM container.
+The Playwright suite starts a local Vite server and a Django server in deterministic UI test mode, so it does not require the LLM runtime.
 
 To run a browser test against the real app and model instead of deterministic e2e mode, start the Docker stack first and then point Playwright at the existing frontend:
 
 ```bash
-docker compose up --build
+./scripts/up_native_apple_silicon.sh
 cd frontend
-PLAYWRIGHT_USE_EXISTING_APP=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:5173 npx playwright test tests/e2e/chat-flow.spec.js -g "history dashboard updates live when a new chat turn is saved from another tab" --headed
+PLAYWRIGHT_USE_EXISTING_APP=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:15173 npx playwright test tests/e2e/chat-flow.spec.js -g "history dashboard updates live when a new chat turn is saved from another tab" --headed
 ```
 
 If the local model is slow on your machine, increase the chat response wait:
 
 ```bash
-PLAYWRIGHT_USE_EXISTING_APP=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:5173 PLAYWRIGHT_CHAT_RESPONSE_TIMEOUT_MS=300000 npx playwright test tests/e2e/chat-flow.spec.js -g "history dashboard updates live when a new chat turn is saved from another tab" --headed
+PLAYWRIGHT_USE_EXISTING_APP=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:15173 PLAYWRIGHT_CHAT_RESPONSE_TIMEOUT_MS=300000 npx playwright test tests/e2e/chat-flow.spec.js -g "history dashboard updates live when a new chat turn is saved from another tab" --headed
 ```
 
 ## Notes
@@ -111,7 +117,11 @@ PLAYWRIGHT_USE_EXISTING_APP=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:5173 PLAYWRIG
 - The Query Agent is intentionally read-only. Django validates generated SQL before execution.
 - Query execution-time SQL failures are returned as handled API errors instead of uncaught 500s, so malformed generated SQL surfaces cleanly in the UI.
 - `Celery`, `Beat`, and `Redis` are intentionally deferred until there is a concrete async need.
-- The default runtime is `llama.cpp` because it works on CPU-only machines more reliably than the previous `vLLM` setup.
-- The default model is a GGUF quantization, `bartowski/Qwen_Qwen3.5-4B-GGUF:Q4_K_M`, loaded by the `llm` container at startup. You can change it through `.env`.
-- First model startup can take time because `llama.cpp` downloads the GGUF artifact into the `llama_cache` Docker volume.
-- On CPU-only hardware, the app uses smaller token budgets and disables Qwen thinking mode to reduce end-to-end latency.
+- The recommended runtime in this branch is `./scripts/up_native_apple_silicon.sh`.
+- That wrapper starts a host-native `llama.cpp` server, points Dockerized Django at it, and uses `bartowski/Qwen2.5-Coder-7B-Instruct-GGUF:Q4_K_M` under the alias `local-qwen25-coder-7b`.
+- This path is the one that actually takes advantage of Apple Silicon best in this repo.
+- On Apple Silicon, the app still disables Qwen thinking mode for faster end-to-end chat and Query Agent latency.
+
+## Optional container runtime
+
+If you want the older containerized LLM path for comparison, see [docs/native-macos-llama-cpp.md](docs/native-macos-llama-cpp.md).

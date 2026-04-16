@@ -11,7 +11,7 @@ services:
       timeout: 5s
       retries: 12
     ports:
-      - "5432:5432"
+      - "${HOST_POSTGRES_PORT:-15432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
@@ -32,8 +32,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_llm_query}
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
-      LLM_BASE_URL: ${LLM_BASE_URL:-http://llm:8000/v1}
-      LLM_MODEL: ${LLM_MODEL:-local-qwen-query}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:${LLAMA_CPP_PORT:-18001}/v1}
+      LLM_MODEL: ${LLM_MODEL:-local-qwen25-coder-7b}
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-180}
       QUERY_AGENT_MAX_ROWS: ${QUERY_AGENT_MAX_ROWS:-100}
     command: >
@@ -44,7 +44,7 @@ services:
     volumes:
       - .:/app
     ports:
-      - "8000:8000"
+      - "${HOST_BACKEND_PORT:-18000}:8000"
 
   frontend:
     build:
@@ -60,15 +60,17 @@ services:
       - .:/app
       - frontend_node_modules:/app/frontend/node_modules
     ports:
-      - "5173:5173"
+      - "${HOST_FRONTEND_PORT:-15173}:5173"
 
   llm:
     image: ghcr.io/ggml-org/llama.cpp:server
+    profiles:
+      - container-llm
     command:
       - -hf
-      - ${LLAMA_CPP_HF_MODEL:-bartowski/Qwen_Qwen3.5-4B-GGUF:Q4_K_M}
+      - ${LLAMA_CPP_HF_MODEL:-bartowski/Qwen2.5-Coder-7B-Instruct-GGUF:Q4_K_M}
       - --alias
-      - ${LLAMA_CPP_ALIAS:-local-qwen-query}
+      - ${LLAMA_CPP_ALIAS:-local-qwen25-coder-7b}
       - --host
       - 0.0.0.0
       - --port
@@ -82,7 +84,7 @@ services:
     volumes:
       - llama_cache:/root/.cache/llama.cpp
     ports:
-      - "8001:8000"
+      - "${LLAMA_CPP_PORT:-18001}:8000"
 
 volumes:
   pgdata:

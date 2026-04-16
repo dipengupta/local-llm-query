@@ -125,29 +125,42 @@ Default runtime config:
 
 Current defaults:
 
-- `LLM_BASE_URL=http://llm:8000/v1`
-- `LLM_MODEL=local-qwen-query`
+- standalone backend: `LLM_BASE_URL=http://localhost:18001/v1`
+- Dockerized backend in the native wrapper: `LLM_BASE_URL=http://host.docker.internal:18001/v1`
+- `LLM_MODEL=local-qwen25-coder-7b`
 - `LLM_TIMEOUT_SECONDS=180`
 
-### 6. The llama.cpp sidecar serves the model
+### 6. Native llama.cpp serves the model
 
-The `llm` service is defined in:
+The recommended local runtime is a native macOS `llama.cpp` server started on the host.
 
-- [docker-compose.yml](/home/dipen/Desktop/codebases/local-llm-query/docker-compose.yml:65)
+Wrapper script:
+
+- [scripts/up_native_apple_silicon.sh](../scripts/up_native_apple_silicon.sh)
+
+Native server helper:
+
+- [scripts/start_native_llama_cpp.sh](../scripts/start_native_llama_cpp.sh)
 
 What it does:
 
-- starts `ghcr.io/ggml-org/llama.cpp:server`
-- loads the GGUF model from `LLAMA_CPP_HF_MODEL`
+- starts `llama-server` natively on macOS
+- downloads or reuses the GGUF model from `LLAMA_CPP_HF_MODEL`
 - serves it under the alias `LLAMA_CPP_ALIAS`
-- exposes an OpenAI-compatible API on port `8000` inside the container
+- exposes an OpenAI-compatible API on port `18001` by default
+- points the Dockerized backend at `http://host.docker.internal:18001/v1`
 
 Current defaults:
 
-- model: `bartowski/Qwen_Qwen3.5-4B-GGUF:Q4_K_M`
-- alias: `local-qwen-query`
+- model: `bartowski/Qwen2.5-Coder-7B-Instruct-GGUF:Q4_K_M`
+- alias: `local-qwen25-coder-7b`
 - context size: `4096`
 - threads: `8`
+
+Optional alternative:
+
+- you can still run the older containerized `llm` service with `docker compose --profile container-llm up --build`
+- if you use that path, point `LLM_BASE_URL` at `http://llm:8000/v1`
 
 ### 7. General mode request path
 

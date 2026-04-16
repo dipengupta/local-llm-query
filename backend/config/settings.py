@@ -103,9 +103,9 @@ REST_FRAMEWORK = {
     ],
 }
 
-LLM_BASE_URL = env("LLM_BASE_URL", "http://llm:8000/v1")
-LLM_MODEL = env("LLM_MODEL", "local-qwen-query")
+LLM_BASE_URL = env("LLM_BASE_URL", "http://localhost:18001/v1")
+LLM_MODEL = env("LLM_MODEL", "local-qwen25-coder-7b")
 LLM_TIMEOUT_SECONDS = int(env("LLM_TIMEOUT_SECONDS", "180"))
 QUERY_AGENT_MAX_ROWS = int(env("QUERY_AGENT_MAX_ROWS", "100"))
-CORS_ALLOWED_ORIGINS = [origin for origin in env("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(",") if origin]
+CORS_ALLOWED_ORIGINS = [origin for origin in env("CORS_ALLOWED_ORIGINS", "http://localhost:15173").split(",") if origin]
 UI_E2E_TEST_MODE = env("UI_E2E_TEST_MODE", "0") == "1"

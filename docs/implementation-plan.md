@@ -2,7 +2,7 @@
 
 ## Summary
 
-- Use `Docker + Django + DRF + Postgres + React SPA + llama.cpp`.
+- Use `native macOS llama.cpp + Docker + Django + DRF + Postgres + React SPA`.
 - Keep one local model service and expose two server-side modes:
   - `General` for normal chat
   - `Query Agent` for database-grounded answers only
@@ -13,7 +13,7 @@
 
 - `frontend/` hosts a React SPA with a landing page that presents `General` and `Query Agent` as two distinct entry points.
 - `backend/` hosts Django and DRF as the sole API boundary for the browser.
-- `llm` runs `llama.cpp` and serves a quantized GGUF Qwen model through an OpenAI-compatible API.
+- Native macOS `llama.cpp` serves a quantized GGUF Qwen model through an OpenAI-compatible API.
 - `db` runs Postgres and stores both Django app state and the imported social data.
 
 ## Django app split
