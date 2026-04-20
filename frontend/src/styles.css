@@ -271,13 +271,15 @@ a {
   max-width: 420px;
 }
 
-.history-row td:first-child,
-.history-expanded-row td:first-child {
+.history-session-row td:first-child,
+.history-turn-row td:first-child,
+.history-turn-expanded-row td:first-child {
   position: relative;
 }
 
-.history-row td:first-child::before,
-.history-expanded-row td:first-child::before {
+.history-session-row td:first-child::before,
+.history-turn-row td:first-child::before,
+.history-turn-expanded-row td:first-child::before {
   content: "";
   position: absolute;
   left: -12px;
@@ -288,7 +290,59 @@ a {
   background: var(--session-marker, rgba(26, 34, 48, 0.22));
 }
 
-.history-mode-cell {
+.history-session-row td {
+  background: rgba(222, 231, 241, 0.48);
+}
+
+.history-session-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+}
+
+.history-session-toggle,
+.history-expand-button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.history-session-main {
+  min-width: 0;
+}
+
+.history-session-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.history-session-title span,
+.history-turn-index {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(26, 34, 48, 0.68);
+}
+
+.history-session-meta {
+  margin-top: 4px;
+  font-size: 0.9rem;
+  color: rgba(26, 34, 48, 0.62);
+}
+
+.history-turn-index {
   white-space: nowrap;
 }
 
@@ -321,19 +375,7 @@ a {
   letter-spacing: 0.06em;
 }
 
-.history-expand-button {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-  font-family: "JetBrains Mono", monospace;
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-right: 14px;
-}
-
-.history-expanded-row td {
+.history-turn-expanded-row td {
   background: rgba(223, 234, 245, 0.24);
 }
 
@@ -464,6 +506,10 @@ a {
   .dashboard-toolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .history-session-summary {
+    grid-template-columns: 1fr;
   }
 
   .history-expanded-grid {

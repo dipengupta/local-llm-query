@@ -13,16 +13,14 @@ describe("App", () => {
   });
 
   test("lets the user enter a mode and return back home", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: false,
-      status: 404,
-      text: vi.fn().mockResolvedValue(JSON.stringify({ detail: "No saved conversation for this mode." })),
-    }));
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
 
     const { user } = renderWithUser(<App />);
 
     await user.click(screen.getByRole("link", { name: /General/i }));
     expect(screen.getByRole("heading", { name: "Local model chat" })).toBeInTheDocument();
+    expect(fetchSpy).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Back" }));
     expect(screen.getByRole("heading", { name: "Choose how you want to use the model." })).toBeInTheDocument();

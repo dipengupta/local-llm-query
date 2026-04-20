@@ -39,7 +39,7 @@ describe("HistoryDashboard", () => {
     MockEventSource.instances = [];
   });
 
-  test("renders saved turns as collapsible rows without a session column", async () => {
+  test("groups saved turns under their chat session", async () => {
     mockJsonResponse([
       {
         id: 7,
@@ -53,7 +53,21 @@ describe("HistoryDashboard", () => {
         rows: [],
         created_at: "2026-04-15T13:00:00Z",
         conversation_updated_at: "2026-04-15T13:10:00Z",
-        turn_count: 3,
+        turn_count: 2,
+      },
+      {
+        id: 8,
+        conversation_id: 3,
+        mode: "general",
+        title: "Long conversation",
+        question: "A follow-up question in the same session.",
+        answer: "A follow-up answer in the same session.",
+        raw_sql: "",
+        sql: "",
+        rows: [],
+        created_at: "2026-04-15T13:05:00Z",
+        conversation_updated_at: "2026-04-15T13:10:00Z",
+        turn_count: 2,
       },
     ]);
 
@@ -65,15 +79,27 @@ describe("HistoryDashboard", () => {
       />,
     );
 
-    expect(await screen.findByText("General")).toBeInTheDocument();
-    expect(screen.queryByText("Session")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute("href", "#/chat/general/conversation/3");
+    expect(await screen.findByText("Long conversation")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Session" })).toBeInTheDocument();
+    expect(screen.getByText(/2 turns \| Updated/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open session" })).toHaveAttribute(
+      "href",
+      "#/chat/general/conversation/3",
+    );
+    expect(screen.getByText("Turn 1")).toBeInTheDocument();
+    expect(screen.getByText("Turn 2")).toBeInTheDocument();
+    expect(screen.getByText("A follow-up question in the same session.")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Expand" }));
+    await user.click(screen.getAllByRole("button", { name: "Expand turn" })[0]);
 
-    expect(screen.getByRole("button", { name: "Collapse" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Collapse turn" })).toBeInTheDocument();
     expect(screen.getAllByText("This is the complete question shown directly in the table.")).toHaveLength(2);
     expect(screen.getAllByText("This is the complete answer shown directly in the table as well.")).toHaveLength(2);
+
+    await user.click(screen.getByRole("button", { name: "Collapse session" }));
+
+    expect(screen.getByRole("button", { name: "Expand session" })).toBeInTheDocument();
+    expect(screen.queryByText("Turn 1")).not.toBeInTheDocument();
   });
 
   test("merges live turn events without duplicating rows during snapshot refreshes", async () => {

@@ -12,3 +12,4 @@ backend/db.sqlite3
 .env
 playwright-report/
 test-results/
+.idea/

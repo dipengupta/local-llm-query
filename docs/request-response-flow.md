@@ -4,7 +4,7 @@ This document explains what happens when you type a message into the UI, reopen 
 
 ## High-level flow
 
-1. The browser loads the React SPA and may first fetch saved conversation history.
+1. The browser loads the React SPA.
 2. The Vite dev server proxies `/api/...` traffic to Django.
 3. Django validates the request body and decides whether this is `General` or `Query Agent`.
 4. Django calls the local LLM sidecar through its OpenAI-compatible API.
@@ -31,7 +31,7 @@ Relevant behavior:
 - both modes may send a `conversation_id` to append to an existing saved conversation
 - opening the dashboard fetches saved turn history
 - opening a saved conversation fetches its ordered turn history
-- opening a mode from the landing page fetches the latest saved conversation for that mode when one exists
+- opening a mode from the landing page starts without prior saved turns
 
 Code reference:
 
@@ -206,10 +206,10 @@ Current Query Agent tuning:
 
 ### 9. History dashboard flow
 
-The dashboard and resume behavior use four history endpoints:
+The dashboard and saved-session behavior use four history endpoints:
 
 - `GET /api/chat/turns/`
-  - returns flat turn rows for the dashboard table
+  - returns flat turn rows that the dashboard groups by session
   - each row includes the question, answer, mode, and owning conversation id
 
 - `GET /api/chat/conversations/`
@@ -222,13 +222,12 @@ The dashboard and resume behavior use four history endpoints:
 Frontend behavior:
 
 - the landing page links to `#/history`
-- mode links use hash-based routes such as `#/chat/general` or `#/chat/query`
+- mode links use hash-based routes such as `#/chat/general/new` or `#/chat/query/new`
 - saved conversation links use `#/chat/<mode>/conversation/<id>`
 - new-session links use `#/chat/<mode>/new`
-- the dashboard is a flat turn log rather than a conversation-summary grid
-- each row represents one saved `ConversationTurn`
-- rows stay uniformly collapsed by default and can be expanded inline to inspect full question and answer text
-- a subtle colored gutter marker indicates rows that belong to the same saved conversation/session
+- the dashboard groups saved `ConversationTurn` rows by their owning conversation/session
+- each session header can be collapsed, and each turn can be expanded inline to inspect full question and answer text
+- a subtle colored gutter marker ties each session header to its saved turns
 
 ## Startup path
 

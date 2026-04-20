@@ -56,7 +56,7 @@ function parseHashRoute(hash) {
       key: path,
       mode: segments[1],
       conversationId: null,
-      resumeLatest: true,
+      resumeLatest: false,
     };
   }
 
@@ -72,11 +72,7 @@ function buildChatHref(mode, options = {}) {
     return `#/chat/${mode}/conversation/${options.conversationId}`;
   }
 
-  if (options.resumeLatest === false) {
-    return `#/chat/${mode}/new`;
-  }
-
-  return `#/chat/${mode}`;
+  return `#/chat/${mode}/new`;
 }
 
 export default function App() {
@@ -117,13 +113,11 @@ export default function App() {
           buildConversationHref={(conversation) =>
             buildChatHref(conversation.mode, {
               conversationId: conversation.id,
-              resumeLatest: false,
             })
           }
           buildNewChatHref={(mode) =>
             buildChatHref(mode, {
               conversationId: null,
-              resumeLatest: false,
             })
           }
         />
@@ -152,7 +146,6 @@ export default function App() {
             className={`mode-card ${card.accent}`}
             href={buildChatHref(card.id, {
               conversationId: null,
-              resumeLatest: true,
             })}
           >
             <span className="card-kicker">Mode</span>

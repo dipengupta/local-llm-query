@@ -34,6 +34,22 @@ function compareTurnsDescending(left, right) {
   return right.id - left.id;
 }
 
+function compareTurnsAscending(left, right) {
+  const timeDifference = new Date(left.created_at).getTime() - new Date(right.created_at).getTime();
+  if (timeDifference !== 0) {
+    return timeDifference;
+  }
+  return left.id - right.id;
+}
+
+function compareSessionsDescending(left, right) {
+  const timeDifference = new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
+  if (timeDifference !== 0) {
+    return timeDifference;
+  }
+  return right.id - left.id;
+}
+
 function mergeTurns(currentTurns, incomingTurns) {
   const turnsById = new Map(currentTurns.map((turn) => [turn.id, turn]));
   incomingTurns.forEach((turn) => {
@@ -42,18 +58,63 @@ function mergeTurns(currentTurns, incomingTurns) {
   return [...turnsById.values()].sort(compareTurnsDescending);
 }
 
+function buildSessionGroups(turns) {
+  const sessionsById = new Map();
+
+  turns.forEach((turn) => {
+    const sessionId = turn.conversation_id;
+    const existing = sessionsById.get(sessionId);
+    const updatedAt = turn.conversation_updated_at || turn.created_at;
+    const turnCount = Number(turn.turn_count) || 0;
+
+    if (existing) {
+      existing.turns.push(turn);
+      existing.turn_count = Math.max(existing.turn_count, turnCount);
+      if (new Date(updatedAt).getTime() > new Date(existing.updated_at).getTime()) {
+        existing.updated_at = updatedAt;
+      }
+      return;
+    }
+
+    sessionsById.set(sessionId, {
+      id: sessionId,
+      mode: turn.mode,
+      title: turn.title,
+      updated_at: updatedAt,
+      turn_count: turnCount,
+      turns: [turn],
+    });
+  });
+
+  return [...sessionsById.values()]
+    .map((session) => ({
+      ...session,
+      turn_count: Math.max(session.turn_count, session.turns.length),
+      turns: session.turns.sort(compareTurnsAscending),
+    }))
+    .sort(compareSessionsDescending);
+}
+
 export default function HistoryDashboard({ onBack, buildConversationHref, buildNewChatHref }) {
   const [turns, setTurns] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [expandedTurnIds, setExpandedTurnIds] = useState([]);
+  const [collapsedSessionIds, setCollapsedSessionIds] = useState([]);
   const [liveError, setLiveError] = useState("");
   const isActiveRef = useRef(true);
   const streamErrorCountRef = useRef(0);
+  const sessions = buildSessionGroups(turns);
 
   function toggleExpanded(turnId) {
     setExpandedTurnIds((current) =>
       current.includes(turnId) ? current.filter((id) => id !== turnId) : [...current, turnId],
+    );
+  }
+
+  function toggleSession(sessionId) {
+    setCollapsedSessionIds((current) =>
+      current.includes(sessionId) ? current.filter((id) => id !== sessionId) : [...current, sessionId],
     );
   }
 
@@ -174,16 +235,16 @@ export default function HistoryDashboard({ onBack, buildConversationHref, buildN
 
       {!isLoading && !error && turns.length === 0 ? (
         <div className="empty-state">
-          <p>No saved turns yet. Start a chat to build history here.</p>
+          <p>No saved sessions yet. Start a chat to build history here.</p>
         </div>
       ) : null}
 
-      {!isLoading && !error && turns.length > 0 ? (
+      {!isLoading && !error && sessions.length > 0 ? (
         <div className="history-table-wrap">
           <table className="history-table">
             <thead>
               <tr>
-                <th scope="col">Mode</th>
+                <th scope="col">Session</th>
                 <th scope="col">Question</th>
                 <th scope="col">Answer</th>
                 <th scope="col">Asked</th>
@@ -191,56 +252,97 @@ export default function HistoryDashboard({ onBack, buildConversationHref, buildN
               </tr>
             </thead>
             <tbody>
-              {turns.map((turn) => {
-                const isExpanded = expandedTurnIds.includes(turn.id);
+              {sessions.map((session) => {
+                const isSessionCollapsed = collapsedSessionIds.includes(session.id);
                 return (
-                  <Fragment key={turn.id}>
-                    <tr className="history-row" style={getSessionMarkerStyle(turn.conversation_id)}>
-                      <td className="history-mode-cell">{MODE_LABELS[turn.mode]}</td>
-                      <td className="history-cell-text">
-                        <div className={`history-cell-clamped ${isExpanded ? "history-cell-unclamped" : ""}`}>
-                          {turn.question}
+                  <Fragment key={session.id}>
+                    <tr className="history-session-row" style={getSessionMarkerStyle(session.id)}>
+                      <td colSpan={5}>
+                        <div className="history-session-summary">
+                          <button
+                            className="history-session-toggle"
+                            type="button"
+                            aria-expanded={!isSessionCollapsed}
+                            onClick={() => toggleSession(session.id)}
+                          >
+                            {isSessionCollapsed ? "Expand session" : "Collapse session"}
+                          </button>
+                          <div className="history-session-main">
+                            <div className="history-session-title">
+                              <span>{MODE_LABELS[session.mode]}</span>
+                              {session.title}
+                            </div>
+                            <div className="history-session-meta">
+                              {session.turn_count} {session.turn_count === 1 ? "turn" : "turns"} | Updated{" "}
+                              {formatTimestamp(session.updated_at)}
+                            </div>
+                          </div>
+                          <a
+                            className="history-open-link"
+                            href={buildConversationHref({ id: session.id, mode: session.mode })}
+                          >
+                            Open session
+                          </a>
                         </div>
-                      </td>
-                      <td className="history-cell-text history-cell-muted">
-                        <div className={`history-cell-clamped ${isExpanded ? "history-cell-unclamped" : ""}`}>
-                          {turn.answer}
-                        </div>
-                      </td>
-                      <td>{formatTimestamp(turn.created_at)}</td>
-                      <td className="history-actions-cell">
-                        <button
-                          className="history-expand-button"
-                          type="button"
-                          aria-expanded={isExpanded}
-                          onClick={() => toggleExpanded(turn.id)}
-                        >
-                          {isExpanded ? "Collapse" : "Expand"}
-                        </button>
-                        <a
-                          className="history-open-link"
-                          href={buildConversationHref({ id: turn.conversation_id, mode: turn.mode })}
-                        >
-                          Open
-                        </a>
                       </td>
                     </tr>
-                    {isExpanded ? (
-                      <tr className="history-expanded-row" style={getSessionMarkerStyle(turn.conversation_id)}>
-                        <td colSpan={5}>
-                          <div className="history-expanded-grid">
-                            <section>
-                              <div className="query-label">Question</div>
-                              <p>{turn.question}</p>
-                            </section>
-                            <section>
-                              <div className="query-label">Answer</div>
-                              <p>{turn.answer}</p>
-                            </section>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : null}
+                    {isSessionCollapsed
+                      ? null
+                      : session.turns.map((turn, index) => {
+                          const isExpanded = expandedTurnIds.includes(turn.id);
+                          return (
+                            <Fragment key={turn.id}>
+                              <tr className="history-turn-row" style={getSessionMarkerStyle(session.id)}>
+                                <td className="history-turn-index">Turn {index + 1}</td>
+                                <td className="history-cell-text">
+                                  <div
+                                    className={`history-cell-clamped ${
+                                      isExpanded ? "history-cell-unclamped" : ""
+                                    }`}
+                                  >
+                                    {turn.question}
+                                  </div>
+                                </td>
+                                <td className="history-cell-text history-cell-muted">
+                                  <div
+                                    className={`history-cell-clamped ${
+                                      isExpanded ? "history-cell-unclamped" : ""
+                                    }`}
+                                  >
+                                    {turn.answer}
+                                  </div>
+                                </td>
+                                <td>{formatTimestamp(turn.created_at)}</td>
+                                <td className="history-actions-cell">
+                                  <button
+                                    className="history-expand-button"
+                                    type="button"
+                                    aria-expanded={isExpanded}
+                                    onClick={() => toggleExpanded(turn.id)}
+                                  >
+                                    {isExpanded ? "Collapse turn" : "Expand turn"}
+                                  </button>
+                                </td>
+                              </tr>
+                              {isExpanded ? (
+                                <tr className="history-turn-expanded-row" style={getSessionMarkerStyle(session.id)}>
+                                  <td colSpan={5}>
+                                    <div className="history-expanded-grid">
+                                      <section>
+                                        <div className="query-label">Question</div>
+                                        <p>{turn.question}</p>
+                                      </section>
+                                      <section>
+                                        <div className="query-label">Answer</div>
+                                        <p>{turn.answer}</p>
+                                      </section>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ) : null}
+                            </Fragment>
+                          );
+                        })}
                   </Fragment>
                 );
               })}

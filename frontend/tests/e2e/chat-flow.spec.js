@@ -52,7 +52,7 @@ test("history dashboard updates live when a new chat turn is saved from another 
   await dashboardPage.goto("/#/history");
   await expect(dashboardPage.getByRole("heading", { name: "Conversation dashboard" })).toBeVisible();
   await expect(dashboardPage.getByText("Loading saved conversations...")).not.toBeVisible();
-  const initialTurnCount = await dashboardPage.locator("tbody .history-row").count();
+  const initialTurnCount = await dashboardPage.locator("tbody .history-turn-row").count();
   const initialFetchCount = dashboardTurnFetchCount;
 
   await chatPage.bringToFront();
@@ -81,7 +81,7 @@ test("history dashboard updates live when a new chat turn is saved from another 
 
   await dashboardPage.bringToFront();
   await expect
-    .poll(async () => dashboardPage.locator("tbody .history-row").count(), {
+    .poll(async () => dashboardPage.locator("tbody .history-turn-row").count(), {
       timeout: assistantResponseTimeout,
     })
     .toBe(initialTurnCount + 1);

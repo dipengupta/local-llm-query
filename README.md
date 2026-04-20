@@ -70,11 +70,11 @@ The backend is served through `uvicorn` so long-lived streaming responses such a
 
 - The landing page exposes `General`, `Query Agent`, and a history dashboard.
 - Chat and dashboard navigation use hash-based links so normal browser open-in-new-tab behavior works.
-- Opening a mode from the landing page resumes the latest saved conversation for that mode when one exists.
-- The history dashboard lists saved turns in a compact table, with one row per question/answer pair.
-- Rows stay uniform and collapsed by default, and can be expanded inline to inspect full question and answer text.
-- A subtle colored gutter marker shows which rows belong to the same saved session without using a dedicated session column.
-- The dashboard also provides links for starting a fresh `General` or `Query Agent` session without resuming history.
+- Opening a mode from the landing page starts a fresh saved session.
+- The history dashboard groups saved turns under their owning chat session.
+- Session groups can be collapsed, and individual turns can be expanded inline to inspect full question and answer text.
+- A subtle colored gutter marker ties each session header to its saved turns.
+- The dashboard provides links for reopening saved sessions and starting a fresh `General` or `Query Agent` session.
 
 ## Frontend tests
 
