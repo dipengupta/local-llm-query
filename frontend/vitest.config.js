@@ -8,5 +8,13 @@ export default defineConfig({
     globals: true,
     setupFiles: "./src/test/setup.js",
     include: ["src/**/*.test.{js,jsx}"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html", "lcov"],
+      reportsDirectory: "./coverage",
+      all: true,
+      include: ["src/**/*.{js,jsx}"],
+      exclude: ["src/**/*.test.{js,jsx}", "src/test/**", "src/main.jsx"],
+    },
   },
 });

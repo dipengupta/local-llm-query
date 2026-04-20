@@ -106,6 +106,14 @@ If the local model is slow on your machine, increase the chat response wait:
 PLAYWRIGHT_USE_EXISTING_APP=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:5173 PLAYWRIGHT_CHAT_RESPONSE_TIMEOUT_MS=300000 npx playwright test tests/e2e/chat-flow.spec.js -g "history dashboard updates live when a new chat turn is saved from another tab" --headed
 ```
 
+## Git hooks
+
+This repo includes a pre-push hook that runs the backend Django tests, frontend component tests, and Playwright browser tests before allowing a push:
+
+```bash
+git config core.hooksPath .githooks
+```
+
 ## Notes
 
 - The Query Agent is intentionally read-only. Django validates generated SQL before execution.

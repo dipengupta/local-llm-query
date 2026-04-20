@@ -1,0 +1,33 @@
+#!/usr/bin/env sh
+set -eu
+
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+PYTHON_BIN="${PYTHON:-$ROOT_DIR/.venv/bin/python}"
+
+if [ ! -x "$PYTHON_BIN" ]; then
+  PYTHON_BIN="python"
+fi
+
+run_step() {
+  printf '\n==> %s\n' "$1"
+}
+
+run_step "Running backend tests"
+(
+  cd "$ROOT_DIR/backend"
+  DATABASE_ENGINE=sqlite "$PYTHON_BIN" manage.py test
+)
+
+run_step "Running frontend component tests"
+(
+  cd "$ROOT_DIR/frontend"
+  npm test
+)
+
+run_step "Running frontend browser tests"
+(
+  cd "$ROOT_DIR/frontend"
+  npm run test:e2e
+)
+
+printf '\nAll pre-push tests passed.\n'

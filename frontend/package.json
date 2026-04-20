@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:ui": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed"
@@ -22,6 +23,7 @@
     "@testing-library/react": "^16.1.0",
     "@testing-library/user-event": "^14.6.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^2.1.9",
     "jsdom": "^25.0.1",
     "vite": "^5.4.11",
     "vitest": "^2.1.8"
